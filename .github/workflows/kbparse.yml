@@ -17,17 +17,36 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - os_name: macOS-x86_64
+          - os_name: macOS-13-aarch64
+            os: macos-13
+            target: aarch64-apple-darwin
+            bin: kbparse
+            name: kbparse-macos13-aarch64.tar.gz
+
+          - os_name: macOS-13-x86_64
+            os: macos-13
+            target: x86_64-apple-darwin
+            bin: kbparse
+            name: kbparse-macos13-x86_64.tar.gz
+
+          - os_name: macOS-12-x86_64
             os: macOS-latest
             target: x86_64-apple-darwin
-            bin: precious
-            name: precious-Darwin-x86_64.tar.gz
-          - os_name: macOS-aarch64
+            bin: kbparse
+            name: kbparse-macos12-x86_64.tar.gz
+
+          - os_name: macOS-12-aarch64
             os: macOS-latest
             target: aarch64-apple-darwin
-            bin: precious
-            name: precious-Darwin-aarch64.tar.gz
-            skip_tests: true
+            bin: kbparse
+            name: kbparse-macos12-aarch64.tar.gz
+            
+          - os_name: macOS-11-x86_64
+            os: macOS-latest
+            target: x86_64-apple-darwin
+            bin: kbparse
+            name: kbparse-macos11-x86_64.tar.gz
+
         toolchain:
           - stable
           - beta
