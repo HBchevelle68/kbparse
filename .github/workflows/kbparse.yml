@@ -41,7 +41,10 @@ jobs:
           target: ${{ matrix.platform.target }}
           toolchain: ${{ matrix.toolchain }}
           args: "--release"
-
+      - name: Install rustfmt and clippy
+        run: |
+          rustup component add rustfmt clippy
+          
       # Format
       - uses: actions-rs/cargo@v1
         with:
@@ -58,3 +61,17 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
+
+
+
+          # clippy:
+          #   name: Clippy
+          #   runs-on: ubuntu-latest
+          #   steps:
+          #     - name: Checkout sources
+          #       uses: actions/checkout@v2
+        
+
+        
+
+        
