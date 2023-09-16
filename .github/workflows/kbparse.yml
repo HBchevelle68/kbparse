@@ -40,8 +40,7 @@ jobs:
           command: build
           target: ${{ matrix.platform.target }}
           toolchain: ${{ matrix.toolchain }}
-          args: "--locked --release"
-          strip: true
+          args: "--release"
 
       # Format
       - uses: actions-rs/cargo@v1
