@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
+  build-fmt-clippy-test:
     name: ${{ matrix.platform.os_name }} with rust ${{ matrix.toolchain }}
     runs-on: ${{ matrix.platform.os }}
     strategy:
@@ -40,7 +40,7 @@ jobs:
             target: aarch64-apple-darwin
             bin: kbparse
             name: kbparse-macos12-aarch64.tar.gz
-            
+
           - os_name: macOS-11-x86_64
             os: macOS-latest
             target: x86_64-apple-darwin
@@ -60,6 +60,7 @@ jobs:
           target: ${{ matrix.platform.target }}
           toolchain: ${{ matrix.toolchain }}
           args: "--release"
+          
       - name: Install rustfmt and clippy
         run: |
           rustup component add rustfmt clippy
@@ -80,17 +81,3 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-
-
-
-          # clippy:
-          #   name: Clippy
-          #   runs-on: ubuntu-latest
-          #   steps:
-          #     - name: Checkout sources
-          #       uses: actions/checkout@v2
-        
-
-        
-
-        
