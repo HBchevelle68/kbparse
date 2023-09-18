@@ -7,3 +7,9 @@ edition = "2021"
 
 [dependencies]
 #scroll = { version = "*" }
+
+[profile.release]
+lto = true
+panic = 'abort'
+opt-level = 'z'
+codegen-units = 1
