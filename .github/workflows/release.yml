@@ -24,32 +24,27 @@ jobs:
     strategy:
       matrix:
         platform:
-            - os_name: macOS-13-aarch64
-              os: macos-13
+            - os: macos-13
               target: aarch64-apple-darwin
               bin: kbparse
               name: kbparse-macos13-aarch64.tar.gz
   
-            - os_name: macOS-13-x86_64
-              os: macos-13
+            - os: macos-13
               target: x86_64-apple-darwin
               bin: kbparse
               name: kbparse-macos13-x86_64.tar.gz
   
-            - os_name: macOS-12-x86_64
-              os: macOS-latest
+            - os: macOS-latest
               target: x86_64-apple-darwin
               bin: kbparse
               name: kbparse-macos12-x86_64.tar.gz
   
-            - os_name: macOS-12-aarch64
-              os: macOS-latest
+            - os: macOS-latest
               target: aarch64-apple-darwin
               bin: kbparse
               name: kbparse-macos12-aarch64.tar.gz
   
-            - os_name: macOS-11-x86_64
-              os: macOS-latest
+            - os: macOS-latest
               target: x86_64-apple-darwin
               bin: kbparse
               name: kbparse-macos11-x86_64.tar.gz
@@ -67,6 +62,6 @@ jobs:
           # [possible values: all, unix, windows, none]
           tar: all
           # When multiple binary names are specified, default archive name or $bin variable cannot be used.
-          archive: $bin-$tag-$os_name
+          archive: $name
           # (required) GitHub token for uploading assets to GitHub Releases.
           token: ${{ secrets.GITHUB_TOKEN }}
