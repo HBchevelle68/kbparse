@@ -23,7 +23,7 @@ jobs:
   upload-assets:
     strategy:
       matrix:
-        platform:
+        include:
             - os: macos-13
               target: aarch64-apple-darwin
   
@@ -36,7 +36,7 @@ jobs:
             - os: macOS-latest
               target: aarch64-apple-darwin
 
-    runs-on: ${{ matrix.platform.os }}
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: taiki-e/upload-rust-binary-action@v1
@@ -50,7 +50,7 @@ jobs:
           tar: all
 
           # (optional) Target triple, default is host triple.
-          target: ${{ matrix.platform.os }}
+          target: ${{ matrix.os }}
 
           # When multiple binary names are specified, default archive name or $bin variable cannot be used.
           archive: $bin-$tag-$target
