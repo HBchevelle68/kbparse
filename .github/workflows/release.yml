@@ -68,9 +68,14 @@ jobs:
           # cd target/release
           # ls -l
           # tar cvzf ${{ matrix.platform.name }} ${{ matrix.platform.bin }}
+          # find / -name kbparse 2>/dev/null
+          # target/aarch64-apple-darwin/release/kbparse
       - name: Package Binary
         run: |
-          find / -name kbparse 2>/dev/null
+          cd target/${{ matrix.platform.target }}/release/
+          pwd
+          ls -l
+          tar cvzf ${{ matrix.platform.name }} ${{ matrix.platform.bin }}
 
       - name: Create Release
         id: create_release
