@@ -72,10 +72,8 @@ jobs:
           # target/aarch64-apple-darwin/release/kbparse
       - name: Package Binary
         run: |
-          cd target/${{ matrix.platform.target }}/release/
-          pwd
+          tar cvzf ${{ matrix.platform.name }} target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
           ls -l
-          tar cvzf ${{ matrix.platform.name }} ${{ matrix.platform.bin }}
 
       - name: Create Release
         id: create_release
@@ -95,6 +93,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: target/${{ matrix.platform.target }}/release/
+          asset_path: ./target/${{ matrix.platform.target }}/release/
           asset_name: ${{ matrix.platform.name }}
           asset_content_type: application/tar
