@@ -63,11 +63,11 @@ jobs:
           target: ${{ matrix.platform.target }}
           toolchain: ${{ matrix.toolchain }}
           args: "--release"  
-
+          # strip ${{ matrix.platform.bin }}
       - name: Package Binary
         run: |
           cd target/release
-          strip ${{ matrix.platform.bin }}
+          which strip
           chmod +x ${{ matrix.platform.bin }}
           tar cvzf ${{ matrix.platform.name }} ${{ matrix.platform.bin }}
 
