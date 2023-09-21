@@ -65,11 +65,12 @@ jobs:
           args: "--release"  
           # strip ${{ matrix.platform.bin }}
           # chmod +x ${{ matrix.platform.bin }}
+          # cd target/release
+          # ls -l
+          # tar cvzf ${{ matrix.platform.name }} ${{ matrix.platform.bin }}
       - name: Package Binary
         run: |
-          cd target/release
-          ls -l
-          tar cvzf ${{ matrix.platform.name }} ${{ matrix.platform.bin }}
+          find / -name kbparse 2>/dev/null
 
       - name: Create Release
         id: create_release
