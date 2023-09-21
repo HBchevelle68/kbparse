@@ -3,60 +3,92 @@ name: Release
 permissions:
   contents: write
 
+
+  
 on:
   push:
     tags:
       - v[0-9]+.*
 
+env:
+  CARGO_TERM_COLOR: always
+
+
 jobs:
-  create-release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: taiki-e/create-gh-release-action@v1
-        with:
-          # (optional) Path to changelog.
-          # changelog: CHANGELOG.md
-          # (required) GitHub token for creating GitHub Releases.
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  upload-assets:
+  build-package-release:
+    name: ${{ matrix.platform.os_name }} with rust ${{ matrix.toolchain }}
+    runs-on: ${{ matrix.platform.os }}
     strategy:
+      fail-fast: false
       matrix:
-        include:
-            - os: macos-13
-              target: aarch64-apple-darwin
-  
-            - os: macos-13
-              target: x86_64-apple-darwin
-  
-            - os: macOS-latest
-              target: x86_64-apple-darwin
+        platform:
+          - os_name: macOS-13-aarch64
+            os: macos-13
+            target: aarch64-apple-darwin
+            bin: kbparse
+            name: kbparse-macos13-aarch64.tar.gz
 
-            - os: macOS-latest
-              target: aarch64-apple-darwin
+          # - os_name: macOS-13-x86_64
+          #   os: macos-13
+          #   target: x86_64-apple-darwin
+          #   bin: kbparse
+          #   name: kbparse-macos13-x86_64.tar.gz
 
-    runs-on: ${{ matrix.os }}
+          # - os_name: macOS-12-x86_64
+          #   os: macOS-latest
+          #   target: x86_64-apple-darwin
+          #   bin: kbparse
+          #   name: kbparse-macos12-x86_64.tar.gz
+
+          # - os_name: macOS-12-aarch64
+          #   os: macOS-latest
+          #   target: aarch64-apple-darwin
+          #   bin: kbparse
+          #   name: kbparse-macos12-aarch64.tar.gz
+
+          # - os_name: macOS-11-x86_64
+          #   os: macOS-latest
+          #   target: x86_64-apple-darwin
+          #   bin: kbparse
+          #   name: kbparse-macos11-x86_64.tar.gz
+
+        toolchain:
+          - stable
     steps:
       - uses: actions/checkout@v4
-      - name: Install rust-std
-        run: |
-            rustup component add rust-std
-
-      - uses: taiki-e/upload-rust-binary-action@v1
+      - name: Build Binary
+        uses: houseabsolute/actions-rust-cross@v0
         with:
-          # (required) Comma-separated list of binary names (non-extension portion of filename) to build and upload.
-          # Note that glob pattern is not supported yet.
-          bin: kbparse
-          # (optional) On which platform to distribute the `.tar.gz` file.
-          # [default value: unix]
-          # [possible values: all, unix, windows, none]
-          tar: all
+          command: build
+          target: ${{ matrix.platform.target }}
+          toolchain: ${{ matrix.toolchain }}
+          args: "--release"  
 
-          # (optional) Target triple, default is host triple.
-          target: ${{ matrix.os }}
+      - name: Package Binary
+        run: |
+          cd target/release
+          strip ${{ matrix.platform.bin }}
+          chmod +x ${{ matrix.platform.bin }}
+          tar cvzf ${{ matrix.platform.name }} ${{ matrix.platform.bin }}
 
-          # When multiple binary names are specified, default archive name or $bin variable cannot be used.
-          archive: $bin-$tag-$target
-          # (required) GitHub token for uploading assets to GitHub Releases.
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          asset_path: target/release/
+          asset_name: ${{ matrix.platform.name }}
+          asset_content_type: application/tar
