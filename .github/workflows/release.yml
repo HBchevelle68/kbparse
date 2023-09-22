@@ -15,7 +15,7 @@ env:
 
 
 jobs:
-  build-package-release:
+  Build-Package:
     name: ${{ matrix.platform.os_name }} with rust ${{ matrix.toolchain }}
     runs-on: ${{ matrix.platform.os }}
     strategy:
@@ -68,28 +68,39 @@ jobs:
           tar cvzf ${{ matrix.platform.name }} target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
           ls -l
 
-      # - name: Create Release
-      #   id: create_release
-      #   uses: actions/create-release@v1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     tag_name: ${{ github.ref }}
-      #     release_name: Release ${{ github.ref }}
-      #     draft: false
-      #     prerelease: false
+      - name: Upload Binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.platform.name }}
+          path: ./${{ matrix.platform.name }}
+      
+
   release:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - bin1: kbparse-macos13-aarch64.tar.gz
+          - bin2: kbparse-macos13-x86_64.tar.gz
+          - bin3: kbparse-macos12-x86_64.tar.gz
+          - bin4: kbparse-macos12-aarch64.tar.gz
+          - bin5: kbparse-macos11-x86_64.tar.gz
+
+
     name: Upload binaries to release
-    needs: build-package-release
+    needs: Build-Package
     runs-on: ubuntu-latest
     steps:
-      - name: View
-        run: |
-          ls -la
-      - uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{ matrix.platform.name }}
-          asset_name: ${{ matrix.platform.name }}
-          tag: ${{ github.ref }}
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+    
+      - name: Display structure of downloaded files
+        run: ls -R
+        
+      # - uses: svenstaro/upload-release-action@v2
+      #   with:
+      #     repo_token: ${{ secrets.GITHUB_TOKEN }}
+      #     file: ${{ matrix.platform.name }}
+      #     asset_name: ${{ matrix.platform.name }}
+      #     tag: ${{ github.ref }}
 
