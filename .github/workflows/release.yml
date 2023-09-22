@@ -51,7 +51,6 @@ jobs:
             target: x86_64-apple-darwin
             bin: kbparse
             name: kbparse-macos11-x86_64.tar.gz
-
         toolchain:
           - stable
     steps:
@@ -63,44 +62,34 @@ jobs:
           target: ${{ matrix.platform.target }}
           toolchain: ${{ matrix.toolchain }}
           args: "--release"  
-          # strip ${{ matrix.platform.bin }}
-          # chmod +x ${{ matrix.platform.bin }}
-          # cd target/release
-          # ls -l
-          # tar cvzf ${{ matrix.platform.name }} ${{ matrix.platform.bin }}
-          # find / -name kbparse 2>/dev/null
-          # target/aarch64-apple-darwin/release/kbparse
+
       - name: Package Binary
         run: |
           tar cvzf ${{ matrix.platform.name }} target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
           ls -l
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
-
-      - name: Upload binaries to release
-        uses: svenstaro/upload-release-action@v2
+      # - name: Create Release
+      #   id: create_release
+      #   uses: actions/create-release@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     tag_name: ${{ github.ref }}
+      #     release_name: Release ${{ github.ref }}
+      #     draft: false
+      #     prerelease: false
+  release:
+    name: Upload binaries to release
+    needs: build-package-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: View
+        run: |
+          ls -la
+      - uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: ${{ matrix.platform.name }}
           asset_name: ${{ matrix.platform.name }}
           tag: ${{ github.ref }}
 
-      # - name: Upload Release Asset
-      #   id: upload-release-asset 
-      #   uses: actions/upload-release-asset@v1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-      #     asset_path: .
-      #     asset_name: ${{ matrix.platform.name }}
-      #     asset_content_type: application/tar
