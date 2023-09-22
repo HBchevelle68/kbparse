@@ -26,31 +26,31 @@ jobs:
             os: macos-13
             target: aarch64-apple-darwin
             bin: kbparse
-            name: kbparse${{ github.ref }}-macos13-aarch64.tar.gz
+            name: kbparse${{ github.ref_name }}-macos13-aarch64.tar.gz
 
           - os_name: macOS-13-x86_64
             os: macos-13
             target: x86_64-apple-darwin
             bin: kbparse
-            name: kbparse${{ github.ref }}-macos13-x86_64.tar.gz
+            name: kbparse${{ github.ref_name }}-macos13-x86_64.tar.gz
 
           - os_name: macOS-12-x86_64
             os: macOS-latest
             target: x86_64-apple-darwin
             bin: kbparse
-            name: kbparse${{ github.ref }}-macos12-x86_64.tar.gz
+            name: kbparse${{ github.ref_name }}-macos12-x86_64.tar.gz
 
           - os_name: macOS-12-aarch64
             os: macOS-latest
             target: aarch64-apple-darwin
             bin: kbparse
-            name: kbparse${{ github.ref }}-macos12-aarch64.tar.gz
+            name: kbparse${{ github.ref_name }}-macos12-aarch64.tar.gz
 
           - os_name: macOS-11-x86_64
             os: macOS-latest
             target: x86_64-apple-darwin
             bin: kbparse
-            name: kbparse${{ github.ref }}-macos11-x86_64.tar.gz
+            name: kbparse${{ github.ref_name }}-macos11-x86_64.tar.gz
         toolchain:
           - stable
     steps:
