@@ -3,8 +3,6 @@ name: Release
 permissions:
   contents: write
 
-
-  
 on:
   push:
     tags:
@@ -12,7 +10,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-
 
 jobs:
   Build-Package:
@@ -73,7 +70,6 @@ jobs:
           name: ${{ matrix.platform.name }}
           path: ./${{ matrix.platform.name }}
       
-
   release:
     name: Release Binaries
     needs: Build-Package
@@ -81,18 +77,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
-      - name: Display structure of downloaded files
-        run: ls -l . kbparse*.tar.gz
-
       - name: Move Bins
         run: |
           mkdir tmp
+          cp README.md tmp/
           for bin in kbparse*.tar.gz/*; do
               mv $bin tmp
-              ls -l tmp
           done
-          ls -lR
-        
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
