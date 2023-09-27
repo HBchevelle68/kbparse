@@ -2,16 +2,42 @@ type BoxedError = Box<dyn std::error::Error>;
 
 // use scroll::{Pread, BE};
 
+// TODO move this into its own lib crate
+
 #[derive(Default, Clone)]
-pub struct KeybagItem {
+pub struct Keybagv5ClassKey {
+    UUID: Keybagv5Item,
+    class: Keybagv5Item,
+    key_type: Keybagv5Item,
+    wrap: Keybagv5Item,
+    wrapped_key: Keybagv5Item,
+    pbky: Option<Keybagv5Item>,
+}
+
+#[derive(Default, Clone)]
+pub struct Keybagv5Metadata {
+    UUID: Keybagv5Item,
+    hmac: Keybagv5Item,
+    wrap: Keybagv5Item,
+    salt: Keybagv5Item,
+    iter: Keybagv5Item,
+    grce: Keybagv5Item,
+    cfgf: Keybagv5Item,
+    tkmt: Keybagv5Item,
+    usid: Keybagv5Item,
+    grid: Keybagv5Item,
+}
+
+#[derive(Default, Clone)]
+pub struct Keybagv5Item {
     tag: String,
     len: u32,
     data: Vec<u8>,
 }
 
-impl std::fmt::Debug for KeybagItem {
+impl std::fmt::Debug for Keybagv5Item {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("KeybagItem")
+        f.debug_struct("Keybagv5Item")
             .field("tag", &self.tag)
             .field("len", &format_args!("{} ({:#02X?})", &self.len, &self.len))
             .field("data", &format_args!("{:02X?}", &self.data))
@@ -28,19 +54,19 @@ const KB_EXCLUDED_LEN: usize = 36;
 // consider 36 bytes, of the total data:
 //      data_tag(4) + data_len(4) + sig_tag(4) + sig_len(4) + sig(20)
 #[derive(Default)]
-pub struct Keybag {
+pub struct Keybagv5 {
     pos: usize,
     pub len: u32,
-    pub kb_type: KeybagItem,
-    pub kb_vers: KeybagItem,
-    pub items: Vec<KeybagItem>,
-    pub sig: KeybagItem,
+    pub kb_type: Keybagv5Item,
+    pub kb_vers: Keybagv5Item,
+    pub items: Vec<Keybagv5Item>,
+    pub sig: Keybagv5Item,
 }
 
-impl Keybag {
-    pub fn new(raw: &[u8]) -> Result<Keybag, BoxedError> {
+impl Keybagv5 {
+    pub fn new(raw: &[u8]) -> Result<Keybagv5, BoxedError> {
         // Create a base default Keybag
-        let mut kb = Keybag::default();
+        let mut kb = Keybagv5::default();
 
         // First tag should always be DATA
         let tag = kb.get_tag(raw)?;
@@ -56,6 +82,11 @@ impl Keybag {
             false => return Err("DATA tag not found in bytes provided".into()),
         }
 
+        // TODO Instead of this loop, split this into 2 loops
+        // TODO First loop to loop through metadata
+        // TODO Second loop will be the core, longer loop looping through all the class keys
+        // TODO can likely keep the signature get call where its at
+
         // Parse Keybag
         // kb.pos is a index to the current position in the raw
         // data. At this point, it's already read 8 bytes, but kb.len
@@ -70,14 +101,32 @@ impl Keybag {
                 "VERS" => {
                     kb.kb_vers = item;
                 }
+                "UUID" => {
+                    let item = kb.get_item(raw)?;
+                    // either HMAC or CLAS
+                    match item.tag.as_str() {
+                        "CLAS" => {
+                            // Most common. Parse Class Key.
+                        }
+                        "HMAC" => {
+                            // Only should occur once. Parse Metadata
+                        }
+                        _ => {
+                            let msg = format!("Unknown tag encountered: {} ", item.tag.as_str());
+                            return Err(msg.into());
+                        }
+                    }
+                }
+
                 _ => {
-                    kb.items.push(item);
+                    let msg = format!("Unknown tag encountered: {} ", item.tag.as_str());
+                    return Err(msg.into());
                 }
             }
         }
 
         // Get Signature
-        // let sigtmp = kb.get_item(raw)?;
+        // TODO move into above loop?
         kb.sig = kb.get_item(raw)?;
 
         Ok(kb)
@@ -86,6 +135,17 @@ impl Keybag {
     #[inline(always)]
     fn len(&self) -> usize {
         self.len as usize
+    }
+
+    // fn process(&mut self, uuid: Keybagv5Item) -> Result<(), BoxedError> {
+    //     // First item after will determine the type
+    //     Ok(())
+    // }
+
+    // A wrapper around get_tag() to express intent
+    #[inline(always)]
+    fn peek<'a>(&'a self, raw: &'a [u8]) -> Result<String, BoxedError> {
+        self.get_tag(raw)
     }
 
     fn get_tag<'a>(&'a self, raw: &'a [u8]) -> Result<String, BoxedError> {
@@ -107,7 +167,7 @@ impl Keybag {
         }
     }
 
-    fn get_item(&mut self, raw: &[u8]) -> Result<KeybagItem, BoxedError> {
+    fn get_item(&mut self, raw: &[u8]) -> Result<Keybagv5Item, BoxedError> {
         let tag = self.get_tag(raw)?;
         self.pos += KB_TAG_LEN;
         let tlen = self.get_tag_len(raw)?;
@@ -116,7 +176,7 @@ impl Keybag {
         if (self.pos + tlen as usize) <= KB_EXCLUDED_LEN + self.len() {
             let bytes = &raw[self.pos..(self.pos + tlen as usize)];
             self.pos += tlen as usize;
-            Ok(KeybagItem {
+            Ok(Keybagv5Item {
                 tag: tag.to_owned(),
                 len: tlen,
                 data: bytes.to_vec(),
@@ -127,7 +187,7 @@ impl Keybag {
     }
 }
 
-impl std::fmt::Debug for Keybag {
+impl std::fmt::Debug for Keybagv5 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("Keybag")
             .field("pos", &self.pos)
@@ -151,12 +211,12 @@ mod tests {
             0x43, 0x5F,
         ];
 
-        assert_eq!(true, super::Keybag::new(&test_file_data).is_err());
+        assert_eq!(true, super::Keybagv5::new(&test_file_data).is_err());
     }
 
     #[test]
     fn bounds_check_get_tag() {
-        let mut bad_kb = super::Keybag::default();
+        let mut bad_kb = super::Keybagv5::default();
         // get_tag account for 36 bytes not considered part of length
         // negate that by setting this to 36
         bad_kb.pos = 36;
@@ -169,7 +229,7 @@ mod tests {
 
     #[test]
     fn bounds_check_get_tag_len() {
-        let mut bad_kb = super::Keybag::default();
+        let mut bad_kb = super::Keybagv5::default();
         // get_tag account for 36 bytes not considered part of length
         // negate that by setting this to 36
         bad_kb.pos = 36;
@@ -182,7 +242,7 @@ mod tests {
 
     #[test]
     fn bounds_check_get_item_bad_length() {
-        let mut bad_kb = super::Keybag::default();
+        let mut bad_kb = super::Keybagv5::default();
         // get_tag account for 36 bytes not considered part of length
         // negate that by setting this to 36
         bad_kb.pos = 36;
