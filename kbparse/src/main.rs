@@ -1,7 +1,7 @@
 use std::env;
 use std::fs;
 
-use kbparse::keybag;
+use kbparse_lib::keybag;
 
 // TODO Add cli
 
