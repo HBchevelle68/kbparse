@@ -4,19 +4,31 @@ type BoxedError = Box<dyn std::error::Error>;
 
 // TODO move this into its own lib crate
 
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub struct Keybagv5ClassKey {
-    UUID: Keybagv5Item,
+    uuid: Keybagv5Item,
     class: Keybagv5Item,
     key_type: Keybagv5Item,
     wrap: Keybagv5Item,
     wrapped_key: Keybagv5Item,
     pbky: Option<Keybagv5Item>,
 }
+impl std::fmt::Debug for Keybagv5ClassKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("Keybagv5Item")
+            .field("UUID", &self.uuid)
+            .field("Key Class", &self.class)
+            .field("Key Type", &self.key_type)
+            .field("Wrap", &self.wrap)
+            .field("Wrapped Key", &self.wrapped_key)
+            .field("PBKY", &self.pbky)
+            .finish()
+    }
+}
 
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub struct Keybagv5Metadata {
-    UUID: Keybagv5Item,
+    uuid: Keybagv5Item,
     hmac: Keybagv5Item,
     wrap: Keybagv5Item,
     salt: Keybagv5Item,
@@ -27,6 +39,22 @@ pub struct Keybagv5Metadata {
     usid: Keybagv5Item,
     grid: Keybagv5Item,
 }
+impl std::fmt::Debug for Keybagv5Metadata {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("Keybagv5Item")
+            .field("UUID", &self.uuid)
+            .field("HMAC", &self.hmac)
+            .field("WRAP", &self.wrap)
+            .field("SALT", &self.salt)
+            .field("ITER", &self.iter)
+            .field("GRCE", &self.grce)
+            .field("CFGF", &self.cfgf)
+            .field("TKMT", &self.tkmt)
+            .field("USID", &self.usid)
+            .field("GRID", &self.grid)
+            .finish()
+    }
+}
 
 #[derive(Default, Clone)]
 pub struct Keybagv5Item {
@@ -36,7 +64,7 @@ pub struct Keybagv5Item {
 }
 
 impl Keybagv5Item {
-    fn data_as_u32(self) -> Result<u32, BoxedError> {
+    fn data_as_u32(&self) -> Result<u32, BoxedError> {
         let tmp = self.data.as_slice();
         Ok(u32::from_be_bytes(tmp.try_into()?))
     }
@@ -66,7 +94,8 @@ pub struct Keybagv5 {
     pub len: u32,
     pub kb_type: Keybagv5Item,
     pub kb_vers: Keybagv5Item,
-    pub items: Vec<Keybagv5Item>,
+    pub metadata: Keybagv5Metadata,
+    pub class_keys: Vec<Keybagv5ClassKey>,
     pub sig: Keybagv5Item,
 }
 
@@ -99,70 +128,67 @@ impl Keybagv5 {
             );
             return Err(msg.into());
         }
+
         kb.kb_type = kb.parse_item(raw)?;
         // TODO confirm bag type?
 
-        // First loop for metadata
-        // When the 2nd UUID tag is hit break out
+        // Parse Metadata
+        let item_meta_uuid = kb.parse_item(raw)?;
+        kb.metadata = Keybagv5Metadata {
+            uuid: item_meta_uuid,
+            hmac: kb.parse_item(raw)?,
+            wrap: kb.parse_item(raw)?,
+            salt: kb.parse_item(raw)?,
+            iter: kb.parse_item(raw)?,
+            grce: kb.parse_item(raw)?,
+            cfgf: kb.parse_item(raw)?,
+            tkmt: kb.parse_item(raw)?,
+            usid: kb.parse_item(raw)?,
+            grid: kb.parse_item(raw)?,
+        };
+        println!(
+            "DONE Parsing metadata pos:{:#?} meta:{:#?}",
+            kb.pos, kb.metadata
+        );
 
-        let item = kb.parse_item(raw)?;
-        // if ()
-
-        // TODO Instead of this loop, split this into 2 loops
-        // TODO First loop to loop through metadata
-        // TODO Second loop will be the core, longer loop looping through all the class keys
-        // TODO can likely keep the signature get call where its at
-
-        // Parse Keybag
-        // kb.pos is a index to the current position in the raw
-        // data. At this point, it's already read 8 bytes, but kb.len
-        // does not include those 8 bytes, in order to properly bounds check
-        // this loop conditional must consider kb.pos to be 8 bytes behind reality
-        while kb.pos - (KB_TAG_LEN + KB_SZ_LEN) != kb.len() {
-            let item = kb.parse_item(raw)?;
-            match item.tag.as_str() {
-                "TYPE" => {
-                    kb.kb_type = item;
-                }
-                "VERS" => {
-                    kb.kb_vers = item;
-                }
-
-                _ => {
-                    let msg = format!("Unknown tag encountered: {} ", item.tag.as_str());
-                    return Err(msg.into());
-                }
-            }
+        // Parse class keys
+        // `pos` is the read position within the raw data. When the `DATA`
+        // tag was parsed and its `len` retrieved, that length doesn't account for
+        // the 8 bytes tht had to be parsed to get there but the _keybag length_
+        // accounts for all bytes in the file. The conditional needs to account
+        // for these 8 bytes to be accurate
+        while kb.pos - (KB_TAG_LEN + KB_SZ_LEN) != kb.get_len() {
+            let ck = kb.parse_key_class(raw)?;
+            kb.class_keys.push(ck);
         }
 
         // Get Signature
-        // TODO move into above loop?
         kb.sig = kb.parse_item(raw)?;
 
         Ok(kb)
     }
 
     #[inline(always)]
-    pub fn len(&self) -> usize {
+    pub fn get_len(&self) -> usize {
         self.len as usize
     }
 
-    pub fn get_vers(self) -> Result<u32, BoxedError> {
-        Ok(self.kb_type.data_as_u32()?)
+    pub fn get_vers(&self) -> Result<u32, BoxedError> {
+        self.kb_vers.data_as_u32()
     }
 
-    pub fn get_type(self) -> Result<u32, BoxedError> {
-        Ok(self.kb_type.data_as_u32()?)
+    pub fn get_type(&self) -> Result<u32, BoxedError> {
+        self.kb_type.data_as_u32()
     }
 
     // A wrapper around parse_tag() to express intent
     #[inline(always)]
-    fn peek<'a>(&'a self, raw: &'a [u8]) -> Result<String, BoxedError> {
+    fn peek_tag<'a>(&'a self, raw: &'a [u8]) -> Result<String, BoxedError> {
         self.parse_tag(raw)
     }
 
     fn parse_tag<'a>(&'a self, raw: &'a [u8]) -> Result<String, BoxedError> {
-        if self.pos + KB_TAG_LEN < KB_EXCLUDED_LEN + self.len() {
+        if self.pos + KB_TAG_LEN < KB_EXCLUDED_LEN + self.get_len() {
             let tag = std::str::from_utf8(&raw[self.pos..(self.pos + KB_TAG_LEN)])?;
             Ok(tag.to_owned())
         } else {
@@ -171,24 +197,27 @@ impl Keybagv5 {
     }
 
     fn parse_tag_len<'a>(&'a self, raw: &'a [u8]) -> Result<u32, BoxedError> {
-        if self.pos + KB_TAG_LEN < KB_EXCLUDED_LEN + self.len() {
-            let tlen = u32::from_be_bytes(raw[self.pos..(self.pos + KB_SZ_LEN)].try_into()?);
-            // let tlen = raw.pread_with::<u32>(self.pos, BE)?;
-            Ok(tlen)
+        if self.pos + KB_TAG_LEN < KB_EXCLUDED_LEN + self.get_len() {
+            Ok(u32::from_be_bytes(
+                raw[self.pos..(self.pos + KB_SZ_LEN)].try_into()?,
+            ))
         } else {
             Err("Number of bytes requested larger than Keybag size".into())
         }
     }
 
     fn parse_item(&mut self, raw: &[u8]) -> Result<Keybagv5Item, BoxedError> {
+        // println!("parse_item: pos:{:#?}", self.pos);
         let tag = self.parse_tag(raw)?;
         self.pos += KB_TAG_LEN;
         let tlen = self.parse_tag_len(raw)?;
         self.pos += KB_SZ_LEN;
+
         // Need to be <=, as last item should read up to the final byte
-        if (self.pos + tlen as usize) <= KB_EXCLUDED_LEN + self.len() {
+        if (self.pos + tlen as usize) <= KB_EXCLUDED_LEN + self.get_len() {
             let bytes = &raw[self.pos..(self.pos + tlen as usize)];
             self.pos += tlen as usize;
+
             Ok(Keybagv5Item {
                 tag: tag.to_owned(),
                 len: tlen,
@@ -197,6 +226,22 @@ impl Keybagv5 {
         } else {
             Err("Number of bytes requested larger than Keybag size".into())
         }
+    }
+
+    fn parse_key_class(&mut self, raw: &[u8]) -> Result<Keybagv5ClassKey, BoxedError> {
+        Ok(Keybagv5ClassKey {
+            uuid: self.parse_item(raw)?,
+            class: self.parse_item(raw)?,
+            key_type: self.parse_item(raw)?,
+            wrap: self.parse_item(raw)?,
+            wrapped_key: self.parse_item(raw)?,
+            // Not all class key items have a pbky item
+            pbky: if "PBKY" == self.peek_tag(raw)? {
+                Some(self.parse_item(raw)?)
+            } else {
+                None
+            },
+        })
     }
 }
 
@@ -207,7 +252,8 @@ impl std::fmt::Debug for Keybagv5 {
             .field("len", &self.len)
             .field("KB Version", &self.kb_vers)
             .field("KB Type", &self.kb_type)
-            .field("KB items", &self.items)
+            .field("KB Metadata", &self.metadata)
+            .field("KB Class Keys", &self.class_keys)
             .field("KB signature", &self.sig)
             .finish()
     }
