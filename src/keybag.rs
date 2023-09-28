@@ -35,6 +35,13 @@ pub struct Keybagv5Item {
     data: Vec<u8>,
 }
 
+impl Keybagv5Item {
+    fn data_as_u32(self) -> Result<u32, BoxedError> {
+        let tmp = self.data.as_slice();
+        Ok(u32::from_be_bytes(tmp.try_into()?))
+    }
+}
+
 impl std::fmt::Debug for Keybagv5Item {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("Keybagv5Item")
@@ -69,18 +76,37 @@ impl Keybagv5 {
         let mut kb = Keybagv5::default();
 
         // First tag should always be DATA
-        let tag = kb.get_tag(raw)?;
+        // Only pull the tag and len, the actual
+        // data is the rest of the bag
+        let tag = kb.parse_tag(raw)?;
         kb.pos += KB_TAG_LEN;
 
         // Confirm 'DATA' is first 4 bytes
         // Using this to essentially say "OK this is a Apple keybag"
         match "DATA" == tag {
             true => {
-                kb.len = kb.get_tag_len(raw)?;
+                kb.len = kb.parse_tag_len(raw)?;
                 kb.pos += KB_SZ_LEN;
             }
             false => return Err("DATA tag not found in bytes provided".into()),
         }
+
+        kb.kb_vers = kb.parse_item(raw)?;
+        if kb.get_vers()? != 5 {
+            let msg = format!(
+                "Only Keybag version 5 supported. Version {} found...",
+                kb.get_vers()?
+            );
+            return Err(msg.into());
+        }
+        kb.kb_type = kb.parse_item(raw)?;
+        // TODO confirm bag type?
+
+        // First loop for metadata
+        // When the 2nd UUID tag is hit break out
+
+        let item = kb.parse_item(raw)?;
+        // if ()
 
         // TODO Instead of this loop, split this into 2 loops
         // TODO First loop to loop through metadata
@@ -93,29 +119,13 @@ impl Keybagv5 {
         // does not include those 8 bytes, in order to properly bounds check
         // this loop conditional must consider kb.pos to be 8 bytes behind reality
         while kb.pos - (KB_TAG_LEN + KB_SZ_LEN) != kb.len() {
-            let item = kb.get_item(raw)?;
+            let item = kb.parse_item(raw)?;
             match item.tag.as_str() {
                 "TYPE" => {
                     kb.kb_type = item;
                 }
                 "VERS" => {
                     kb.kb_vers = item;
-                }
-                "UUID" => {
-                    let item = kb.get_item(raw)?;
-                    // either HMAC or CLAS
-                    match item.tag.as_str() {
-                        "CLAS" => {
-                            // Most common. Parse Class Key.
-                        }
-                        "HMAC" => {
-                            // Only should occur once. Parse Metadata
-                        }
-                        _ => {
-                            let msg = format!("Unknown tag encountered: {} ", item.tag.as_str());
-                            return Err(msg.into());
-                        }
-                    }
                 }
 
                 _ => {
@@ -127,28 +137,31 @@ impl Keybagv5 {
 
         // Get Signature
         // TODO move into above loop?
-        kb.sig = kb.get_item(raw)?;
+        kb.sig = kb.parse_item(raw)?;
 
         Ok(kb)
     }
 
     #[inline(always)]
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.len as usize
     }
 
-    // fn process(&mut self, uuid: Keybagv5Item) -> Result<(), BoxedError> {
-    //     // First item after will determine the type
-    //     Ok(())
-    // }
-
-    // A wrapper around get_tag() to express intent
-    #[inline(always)]
-    fn peek<'a>(&'a self, raw: &'a [u8]) -> Result<String, BoxedError> {
-        self.get_tag(raw)
+    pub fn get_vers(self) -> Result<u32, BoxedError> {
+        Ok(self.kb_type.data_as_u32()?)
     }
 
-    fn get_tag<'a>(&'a self, raw: &'a [u8]) -> Result<String, BoxedError> {
+    pub fn get_type(self) -> Result<u32, BoxedError> {
+        Ok(self.kb_type.data_as_u32()?)
+    }
+
+    // A wrapper around parse_tag() to express intent
+    #[inline(always)]
+    fn peek<'a>(&'a self, raw: &'a [u8]) -> Result<String, BoxedError> {
+        self.parse_tag(raw)
+    }
+
+    fn parse_tag<'a>(&'a self, raw: &'a [u8]) -> Result<String, BoxedError> {
         if self.pos + KB_TAG_LEN < KB_EXCLUDED_LEN + self.len() {
             let tag = std::str::from_utf8(&raw[self.pos..(self.pos + KB_TAG_LEN)])?;
             Ok(tag.to_owned())
@@ -157,7 +170,7 @@ impl Keybagv5 {
         }
     }
 
-    fn get_tag_len<'a>(&'a self, raw: &'a [u8]) -> Result<u32, BoxedError> {
+    fn parse_tag_len<'a>(&'a self, raw: &'a [u8]) -> Result<u32, BoxedError> {
         if self.pos + KB_TAG_LEN < KB_EXCLUDED_LEN + self.len() {
             let tlen = u32::from_be_bytes(raw[self.pos..(self.pos + KB_SZ_LEN)].try_into()?);
             // let tlen = raw.pread_with::<u32>(self.pos, BE)?;
@@ -167,10 +180,10 @@ impl Keybagv5 {
         }
     }
 
-    fn get_item(&mut self, raw: &[u8]) -> Result<Keybagv5Item, BoxedError> {
-        let tag = self.get_tag(raw)?;
+    fn parse_item(&mut self, raw: &[u8]) -> Result<Keybagv5Item, BoxedError> {
+        let tag = self.parse_tag(raw)?;
         self.pos += KB_TAG_LEN;
-        let tlen = self.get_tag_len(raw)?;
+        let tlen = self.parse_tag_len(raw)?;
         self.pos += KB_SZ_LEN;
         // Need to be <=, as last item should read up to the final byte
         if (self.pos + tlen as usize) <= KB_EXCLUDED_LEN + self.len() {
@@ -215,35 +228,35 @@ mod tests {
     }
 
     #[test]
-    fn bounds_check_get_tag() {
+    fn bounds_check_parse_tag() {
         let mut bad_kb = super::Keybagv5::default();
-        // get_tag account for 36 bytes not considered part of length
+        // parse_tag account for 36 bytes not considered part of length
         // negate that by setting this to 36
         bad_kb.pos = 36;
         bad_kb.len = 3;
 
         let test_file_data = [0x2F, 0xCD, 0xCE];
 
-        assert_eq!(true, bad_kb.get_tag(&test_file_data).is_err());
+        assert_eq!(true, bad_kb.parse_tag(&test_file_data).is_err());
     }
 
     #[test]
-    fn bounds_check_get_tag_len() {
+    fn bounds_check_parse_tag_len() {
         let mut bad_kb = super::Keybagv5::default();
-        // get_tag account for 36 bytes not considered part of length
+        // parse_tag account for 36 bytes not considered part of length
         // negate that by setting this to 36
         bad_kb.pos = 36;
         bad_kb.len = 3;
 
         let test_file_data = [0x2F, 0xCD, 0xCE];
 
-        assert_eq!(true, bad_kb.get_tag_len(&test_file_data).is_err());
+        assert_eq!(true, bad_kb.parse_tag_len(&test_file_data).is_err());
     }
 
     #[test]
-    fn bounds_check_get_item_bad_length() {
+    fn bounds_check_parse_item_bad_length() {
         let mut bad_kb = super::Keybagv5::default();
-        // get_tag account for 36 bytes not considered part of length
+        // parse_tag account for 36 bytes not considered part of length
         // negate that by setting this to 36
         bad_kb.pos = 36;
         bad_kb.len = 12;
@@ -251,7 +264,7 @@ mod tests {
         // 0x00 * 36 to account for fake pos
         // Fake tag of 'DATA'
         // Size should be 0xff000000 (4278190080)
-        // get_item should catch the bad length
+        // parse_item should catch the bad length
         let test_file_data = [
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -259,6 +272,6 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
         ];
 
-        assert_eq!(true, bad_kb.get_item(&test_file_data).is_err());
+        assert_eq!(true, bad_kb.parse_item(&test_file_data).is_err());
     }
 }
