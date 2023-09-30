@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 kbparse-lib = { path = "../kbparse-lib" }
+# kbparse-lib ="*"
 #scroll = { version = "*" }

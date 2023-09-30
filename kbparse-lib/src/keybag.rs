@@ -65,8 +65,13 @@ pub struct Keybagv5Item {
 
 impl Keybagv5Item {
     fn data_as_u32(&self) -> Result<u32, BoxedError> {
-        let tmp = self.data.as_slice();
-        Ok(u32::from_be_bytes(tmp.try_into()?))
+        if self.len > 4 {
+            // Too large
+            Err(format!("Data length [{}] is too large to convert to u32", self.len).into())
+        } else {
+            let tmp = self.data.as_slice();
+            Ok(u32::from_be_bytes(tmp.try_into()?))
+        }
     }
 }
 
@@ -84,10 +89,10 @@ const KB_TAG_LEN: usize = 4;
 const KB_SZ_LEN: usize = KB_TAG_LEN;
 const KB_EXCLUDED_LEN: usize = 36;
 
-// The Keybag length is the length from the DATA tag, which describes the total
-// legnth of what Apple considers the Keybag. It != Total File Size. It doesn't
-// consider 36 bytes, of the total data:
-//      data_tag(4) + data_len(4) + sig_tag(4) + sig_len(4) + sig(20)
+/// The Keybag length is the length from the DATA tag, which describes the total
+/// legnth of what Apple considers the Keybag. It != Total File Size. It doesn't
+/// consider 36 bytes, of the total data:
+///      data_tag(4) + data_len(4) + sig_tag(4) + sig_len(4) + sig(20)
 #[derive(Default)]
 pub struct Keybagv5 {
     pos: usize,
@@ -146,10 +151,6 @@ impl Keybagv5 {
             usid: kb.parse_item(raw)?,
             grid: kb.parse_item(raw)?,
         };
-        println!(
-            "DONE Parsing metadata pos:{:#?} meta:{:#?}",
-            kb.pos, kb.metadata
-        );
 
         // Parse class keys
         // `pos` is the read position within the raw data. When the `DATA`
@@ -169,14 +170,18 @@ impl Keybagv5 {
     }
 
     #[inline(always)]
+    /// Returns the total size of the parsed user keybag
     pub fn get_len(&self) -> usize {
         self.len as usize
     }
 
+    /// Returns the version of the parsed keybag as a u32
     pub fn get_vers(&self) -> Result<u32, BoxedError> {
         self.kb_vers.data_as_u32()
     }
 
+    /// Returns the type of the parsed keybag as a u32
+    /// <https://support.apple.com/guide/security/keybags-for-data-protection-sec6483d5760/web>
     pub fn get_type(&self) -> Result<u32, BoxedError> {
         self.kb_type.data_as_u32()
     }
