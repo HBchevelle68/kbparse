@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(
-    version = "0.3.0",
+    version = "0.3.1",
     about = "Apple Keybag Parser",
     author = "HBChevelle68"
 )]
