@@ -105,7 +105,7 @@ pub struct Keybagv5 {
 }
 
 impl Keybagv5 {
-    pub fn new(raw: &[u8]) -> Result<Keybagv5, BoxedError> {
+    pub fn parse(raw: &[u8]) -> Result<Keybagv5, BoxedError> {
         // Create a base default Keybag
         let mut kb = Keybagv5::default();
 
@@ -223,6 +223,8 @@ impl Keybagv5 {
             let bytes = &raw[self.pos..(self.pos + tlen as usize)];
             self.pos += tlen as usize;
 
+            // TODO
+            // Maybe find a way to not require the copy??
             Ok(Keybagv5Item {
                 tag: tag.to_owned(),
                 len: tlen,
@@ -275,7 +277,7 @@ mod tests {
             0x43, 0x5F,
         ];
 
-        assert_eq!(true, super::Keybagv5::new(&test_file_data).is_err());
+        assert_eq!(true, super::Keybagv5::parse(&test_file_data).is_err());
     }
 
     #[test]
