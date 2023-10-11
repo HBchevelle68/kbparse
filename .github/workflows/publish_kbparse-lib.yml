@@ -1,46 +1,39 @@
-# name: Publish Crate to Crates.io
+name: Publish Crate to Crates.io
 
-# on:
-#   release:
-#     types:
-#       - created
+on:
+  release:
+    types:
+      - created
 
-# jobs:
-#   publish:
-#     runs-on: ubuntu-latest
+env:
+    CARGO_TERM_COLOR: always
 
-#     steps:
-#       - name: Checkout code
-#         uses: actions/checkout@v2
+jobs:
+  publish:
+    runs-on: ubuntu-latest
 
-#       - name: Set up Rust
-#         uses: actions-rs/toolchain@v1
-#         with:
-#           toolchain: stable
-#           override: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-#       - name: Build and publish crate
-#         run: |
-#           # Set the necessary environment variables
-#           export CRATES_IO_TOKEN=${{ secrets.CRATES_IO_TOKEN }}
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Build and publish crate
+        run: |
+          # Set the necessary environment variables
+          export CRATES_IO_TOKEN=${{ secrets.CRATES_IO_TOKEN }}
+        
+          # Login
+          cargo login $CRATES_IO_TOKEN
+
+          # Dry run
+          cargo publish -p kbparse-lib --dry-run
           
-#           # Replace `your_crate_name` with your crate's name
-#           export CRATE_NAME="your_crate_name"
-          
-#           # Build and publish the crate
-#           cargo login $CRATES_IO_TOKEN
-#           cargo publish --manifest-path $CRATE_NAME/Cargo.toml
-#         env:
-#           CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
-
-
-
-# In your GitHub repository, navigate to the "Settings" tab.
-
-# Select "Secrets" from the left sidebar.
-
-# Click on "New repository secret" and create a secret named CRATES_IO_TOKEN. Set its value to your crates.io API token, which you can obtain by following the instructions on the crates.io website.
-
-# When you create a new release in your repository, the workflow will automatically run and publish your crate to crates.io using the specified API token.
-
-# Please replace "your_crate_name" with the actual name of your crate in the workflow file. Make sure to keep your crates.io API token secret and do not expose it in your workflow configuration.
+          # Build and publish the crate
+          cargo publish -p kbparse-lib --locked
+        env:
+          CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
