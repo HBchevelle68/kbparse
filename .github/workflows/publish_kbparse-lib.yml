@@ -1,4 +1,4 @@
-name: Publish Crate to Crates.io
+name: Publish kbparse-lib to Crates.io
 
 on:
   release:
