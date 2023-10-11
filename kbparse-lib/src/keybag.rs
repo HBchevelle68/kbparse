@@ -268,7 +268,6 @@ impl std::fmt::Debug for Keybagv5 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn not_keybag_file() {
