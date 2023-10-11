@@ -17,6 +17,12 @@ jobs:
       fail-fast: false
       matrix:
         platform:
+          - os_name: macOS-14-aarch64
+            os: macos-14`
+            target: aarch64-apple-darwin
+            bin: kbparse
+            name: kbparse-macos13-aarch64.tar.gz
+
           - os_name: macOS-13-aarch64
             os: macos-13
             target: aarch64-apple-darwin
