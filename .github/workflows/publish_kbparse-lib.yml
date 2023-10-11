@@ -1,9 +1,9 @@
 name: Publish kbparse-lib to Crates.io
 
 on:
-  release:
-    types:
-      - created
+    push:
+      tags:
+        - v[0-9]+.*
 
 env:
     CARGO_TERM_COLOR: always
