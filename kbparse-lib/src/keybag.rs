@@ -1,17 +1,18 @@
 type BoxedError = Box<dyn std::error::Error>;
 
-// use scroll::{Pread, BE};
-
-// TODO move this into its own lib crate
-
+/// Represents a individual class key
+///
+/// Each class key is tied to a specified security level
+///
+/// See: https://support.apple.com/guide/security/keychain-data-protection-secb0694df1a/1/web/1
 #[derive(Default)]
 pub struct Keybagv5ClassKey {
-    uuid: Keybagv5Item,
-    class: Keybagv5Item,
-    key_type: Keybagv5Item,
-    wrap: Keybagv5Item,
-    wrapped_key: Keybagv5Item,
-    pbky: Option<Keybagv5Item>,
+    pub uuid: Keybagv5Item,
+    pub class: Keybagv5Item,
+    pub key_type: Keybagv5Item,
+    pub wrap: Keybagv5Item,
+    pub wrapped_key: Keybagv5Item,
+    pub pbky: Option<Keybagv5Item>,
 }
 impl std::fmt::Debug for Keybagv5ClassKey {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -26,18 +27,21 @@ impl std::fmt::Debug for Keybagv5ClassKey {
     }
 }
 
+/// Keybag Metadata
+///
+/// This data is always comes after the bag type and version
 #[derive(Default)]
 pub struct Keybagv5Metadata {
-    uuid: Keybagv5Item,
-    hmac: Keybagv5Item,
-    wrap: Keybagv5Item,
-    salt: Keybagv5Item,
-    iter: Keybagv5Item,
-    grce: Keybagv5Item,
-    cfgf: Keybagv5Item,
-    tkmt: Keybagv5Item,
-    usid: Keybagv5Item,
-    grid: Keybagv5Item,
+    pub uuid: Keybagv5Item,
+    pub hmac: Keybagv5Item,
+    pub wrap: Keybagv5Item,
+    pub salt: Keybagv5Item,
+    pub iter: Keybagv5Item,
+    pub grce: Keybagv5Item,
+    pub cfgf: Keybagv5Item,
+    pub tkmt: Keybagv5Item,
+    pub usid: Keybagv5Item,
+    pub grid: Keybagv5Item,
 }
 impl std::fmt::Debug for Keybagv5Metadata {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -56,11 +60,17 @@ impl std::fmt::Debug for Keybagv5Metadata {
     }
 }
 
+/// Tag agnostic representation of a singular item within the Keybag.
+/// This is the lowest level struct in the keybag hierarchy and thus the data
+/// is kept in a mostly raw state.
 #[derive(Default, Clone)]
 pub struct Keybagv5Item {
-    tag: String,
-    len: u32,
-    data: Vec<u8>,
+    /// String representation of what type of data is in the item
+    pub tag: String,
+    /// Byte length of [data]
+    pub len: u32,
+    /// Raw hex bytes of keybag item
+    pub data: Vec<u8>,
 }
 
 impl Keybagv5Item {
@@ -89,6 +99,8 @@ const KB_TAG_LEN: usize = 4;
 const KB_SZ_LEN: usize = KB_TAG_LEN;
 const KB_EXCLUDED_LEN: usize = 36;
 
+/// Structure defining the Apple Keybag Version 5
+///
 /// The Keybag length is the length from the DATA tag, which describes the total
 /// legnth of what Apple considers the Keybag. It != Total File Size. It doesn't
 /// consider 36 bytes, of the total data:
